@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Math Acer | O-Level Mathematics Portal</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: '#6366f1', // Vibrant Indigo
+                        primaryDark: '#4f46e5',
+                        secondary: '#ec4899', // Vibrant Pink/Fuchsia
+                        accent: '#06b6d4', // Neon Cyan
+                        vibrantDark: '#0f172a',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-900 font-sans text-slate-100 antialiased min-h-screen flex flex-col selection:bg-pink-500 selection:text-white">
+
+    <!-- App Root Container -->
+    <div id="app" class="flex-1 flex flex-col"></div>
+
+    <!-- PDF / Document Preview Modal -->
+    <div id="pdfModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-700/80 rounded-3xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-slate-800 bg-slate-950/50">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-pink-500 to-indigo-500 text-white flex items-center justify-center font-bold shadow-lg shadow-pink-500/20">
+                        <i class="fa-solid fa-file-pdf text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 id="modalTitle" class="font-bold text-white text-lg">Document Preview</h3>
+                        <p id="modalSubtitle" class="text-xs text-slate-400">Secure O-Level Material</p>
+                    </div>
+                </div>
+                <button onclick="closePdfModal()" class="w-9 h-9 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition-colors">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <div class="flex-1 bg-slate-950 p-4 flex flex-col items-center justify-center overflow-auto">
+                <div id="pdfViewerContent" class="w-full h-full bg-slate-900 border border-slate-800 rounded-2xl shadow-inner flex flex-col items-center justify-center p-8 text-center"></div>
+            </div>
+            <div class="px-6 py-4 bg-slate-950/50 border-t border-slate-800 flex justify-end space-x-3">
+                <a id="modalDownloadBtn" href="#" target="_blank" class="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-sm font-bold rounded-xl transition shadow-lg shadow-indigo-500/25 flex items-center space-x-2">
+                    <i class="fa-solid fa-download"></i>
+                    <span>Open in New Tab / Download</span>
+                </a>
+                <button onclick="closePdfModal()" class="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-bold rounded-xl transition">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Application Script -->
+    <script>
+        const STORAGE_PREFIX = 'math_acer_portal_v22_vibrant_';
+        
+        const loadStorage = (key, fallback) => {
+            try {
+                const item = localStorage.getItem(STORAGE_PREFIX + key);
+                return item ? JSON.parse(item) : fallback;
+            } catch(e) {
+                console.error(e);
+                return fallback;
+            }
+        };
+
+        const saveStorage = (key, val) => {
+            try {
+                localStorage.setItem(STORAGE_PREFIX + key, JSON.stringify(val));
+            } catch(e) {
+                console.error(e);
+            }
+        };
+
+        const DEFAULT_SUBGROUPS = [
+            { id: 'sub_cambridge', name: 'Cambridge Batch' },
+            { id: 'sub_edexcel', name: 'Edexcel Batch' }
+        ];
+
+        const DEFAULT_USERS = [
+            { id: 'u_tutor_1', name: 'Dr. Arthur Pendelton', email: 'tutor@mathacer.com', password: 'Tutor123', role: 'tutor', status: 'active', subgroupId: 'sub_cambridge' },
+            { id: 'u_student_1', name: 'Sarah Jenkins', email: 'student@mathacer.com', password: 'Student123', role: 'student', status: 'active', subgroupId: 'sub_cambridge' },
+            { id: 'u_student_2', name: 'Liam Vance', email: 'liam@mathacer.com', password: 'Password123', role: 'student', status: 'active', subgroupId: 'sub_edexcel' }
+        ];
+
+        const DEFAULT_ZOOM = [
+            { id: 'z_1', title: 'O-Level Vectors & Transformations Masterclass', date: '2026-06-10T15:00', link: 'https://zoom.us/j/sample123', subgroupId: 'sub_cambridge', status: 'active' }
+        ];
+
+        const DEFAULT_HOMEWORKS = [
+            { id: 'hw_1', title: 'Quadratic Equations Practice Set', description: 'Solve questions 1 through 15 on page 42.', deadline: '2026-06-15T23:59', subgroupId: 'sub_cambridge', fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', submissions: {} }
+        ];
+
+        const DEFAULT_NOTES = [
+            { id: 'note_1', title: 'Formula Sheet: Mensuration & Geometry', description: 'Complete summary of circle theorems.', subgroupId: 'sub_cambridge', fileUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf', date: '2026-06-01' }
+        ];
+
+        const DEFAULT_VIDEOS = [
+            { id: 'vid_1', title: 'Lecture 12: Differentiation', youtubeUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', subgroupId: 'sub_edexcel', date: '2026-06-02' }
+        ];
+
+        let appState = {
+            currentUser: loadStorage('currentUser', null),
+            authTab: 'login',
+            currentTab: 'dashboard',
+            users: loadStorage('users', DEFAULT_USERS),
+            subgroups: loadStorage('subgroups', DEFAULT_SUBGROUPS),
+            zoomClasses: loadStorage('zoomClasses', DEFAULT_ZOOM),
+            homeworks: loadStorage('homeworks', DEFAULT_HOMEWORKS),
+            notes: loadStorage('notes', DEFAULT_NOTES),
+            videos: loadStorage('videos', DEFAULT_VIDEOS),
+            sessionTitle: loadStorage('sessionTitle', 'May/June 2027 Examination Session')
+        };
+
+        function persistAll() {
+            saveStorage('users', appState.users);
+            saveStorage('subgroups', appState.subgroups);
+            saveStorage('zoomClasses', appState.zoomClasses);
+            saveStorage('homeworks', appState.homeworks);
+            saveStorage('notes', appState.notes);
+            saveStorage('videos', appState.videos);
+            saveStorage('currentUser', appState.currentUser);
+            saveStorage('sessionTitle', appState.sessionTitle);
+        }
+
+        window.switchAuthTab = function(tab) {
+            appState.authTab = tab;
+            render();
+        }
+
+        window.handleLogin = function(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+            const pass = document.getElementById('loginPassword').value;
+            const errEl = document.getElementById('loginError');
+
+            const found = appState.users.find(u => u.email.toLowerCase() === email && u.password === pass);
+            if (!found) {
+                errEl.textContent = 'Invalid email or password.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            if (found.status === 'pending') {
+                errEl.textContent = found.role === 'tutor' 
+                    ? 'Your tutor account is pending approval by the main admin tutor (tutor@mathacer.com).' 
+                    : 'Your student account is pending tutor approval.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            appState.currentUser = found;
+            appState.currentTab = 'dashboard';
+            persistAll();
+            render();
+        }
+
+        window.handleSignup = function(e) {
+            e.preventDefault();
+            const name = document.getElementById('signupName').value.trim();
+            const email = document.getElementById('signupEmail').value.trim().toLowerCase();
+            const password = document.getElementById('signupPassword').value;
+            const role = document.getElementById('signupRole').value;
+            const subgroupId = document.getElementById('signupSubgroup') ? document.getElementById('signupSubgroup').value : (appState.subgroups[0] ? appState.subgroups[0].id : 'sub_cambridge');
+            const errEl = document.getElementById('signupError');
+
+            if (appState.users.some(u => u.email.toLowerCase() === email)) {
+                errEl.textContent = 'Email is already registered.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            const isMainAdminTutor = (email === 'tutor@mathacer.com');
+
+            const newUser = {
+                id: 'u_' + Date.now(),
+                name, email, password, role,
+                status: isMainAdminTutor ? 'active' : 'pending',
+                subgroupId
+            };
+
+            appState.users.push(newUser);
+            persistAll();
+
+            if (isMainAdminTutor) {
+                appState.currentUser = newUser;
+                appState.currentTab = 'dashboard';
+                persistAll();
+                render();
+            } else {
+                alert(role === 'tutor' 
+                    ? 'Registration successful! Your tutor account is pending approval by the main admin (tutor@mathacer.com).' 
+                    : 'Registration successful! Your student account is pending tutor approval.');
+                appState.authTab = 'login';
+                render();
+            }
+        }
+
+        window.logout = function() {
+            appState.currentUser = null;
+            persistAll();
+            render();
+        }
+
+        window.switchTab = function(tab) {
+            appState.currentTab = tab;
+            render();
+        }
+
+        window.approveUser = function(userId, newSubgroupId) {
+            const user = appState.users.find(u => u.id === userId);
+            if (user) {
+                user.status = 'active';
+                if (user.role === 'student' && newSubgroupId) user.subgroupId = newSubgroupId;
+                persistAll();
+                render();
+            }
+        }
+
+        window.rejectUser = function(userId) {
+            appState.users = appState.users.filter(u => u.id !== userId);
+            persistAll();
+            render();
+        }
+
+        window.toggleFreezeStudent = function(userId) {
+            const user = appState.users.find(u => u.id === userId);
+            if (user && user.role === 'student') {
+                user.status = user.status === 'frozen' ? 'active' : 'frozen';
+                persistAll();
+                render();
+            }
+        }
+
+        window.removeParticipant = function(userId) {
+            const userToRemove = appState.users.find(u => u.id === userId);
+            if (userToRemove && userToRemove.email.toLowerCase() === 'tutor@mathacer.com') {
+                alert('Cannot remove the main system tutor account.');
+                return;
+            }
+            if (confirm('Are you sure you want to permanently remove this user account?')) {
+                appState.users = appState.users.filter(u => u.id !== userId);
+                persistAll();
+                render();
+            }
+        }
+
+        window.reassignStudentBatch = function(userId, newSubId) {
+            const user = appState.users.find(u => u.id === userId);
+            if (user) {
+                user.subgroupId = newSubId;
+                persistAll();
+                render();
+            }
+        }
+
+        window.handleCreateSubgroup = function(e) {
+            e.preventDefault();
+            const name = document.getElementById('newSubgroupName').value.trim();
+            if (!name) return;
+            appState.subgroups.push({ id: 'sub_' + Date.now(), name });
+            persistAll();
+            render();
+        }
+
+        window.deleteSubgroup = function(subId) {
+            if (appState.subgroups.length <= 1) {
+                alert('You must maintain at least one active batch.');
+                return;
+            }
+            const fallbackBatch = appState.subgroups.find(s => s.id !== subId);
+            if (confirm(`Delete this batch? Students will be moved to ${fallbackBatch ? fallbackBatch.name : 'another batch'}.`)) {
+                appState.users.forEach(u => { if (u.subgroupId === subId) u.subgroupId = fallbackBatch.id; });
+                appState.zoomClasses.forEach(z => { if (z.subgroupId === subId) z.subgroupId = fallbackBatch.id; });
+                appState.homeworks.forEach(h => { if (h.subgroupId === subId) h.subgroupId = fallbackBatch.id; });
+                appState.notes.forEach(n => { if (n.subgroupId === subId) n.subgroupId = fallbackBatch.id; });
+                appState.videos.forEach(v => { if (v.subgroupId === subId) v.subgroupId = fallbackBatch.id; });
+
+                appState.subgroups = appState.subgroups.filter(s => s.id !== subId);
+                persistAll();
+                render();
+            }
+        }
+
+        window.deleteZoom = function(id) {
+            if (confirm('Remove this Zoom class?')) {
+                appState.zoomClasses = appState.zoomClasses.filter(z => z.id !== id);
+                persistAll();
+                render();
+            }
+        }
+
+        window.deleteHomework = function(id) {
+            if (confirm('Remove this homework assignment?')) {
+                appState.homeworks = appState.homeworks.filter(h => h.id !== id);
+                persistAll();
+                render();
+            }
+        }
+
+        window.deleteNote = function(id) {
+            if (confirm('Remove this study note?')) {
+                appState.notes = appState.notes.filter(n => n.id !== id);
+                persistAll();
+                render();
+            }
+        }
+
+        window.deleteVideo = function(id) {
+            if (confirm('Remove this video recording?')) {
+                appState.videos = appState.videos.filter(v => v.id !== id);
+                persistAll();
+                render();
+            }
+        }
+
+        window.undoHomeworkSubmission = function(hwId) {
+            if (confirm('Are you sure you want to unsubmit / edit your homework?')) {
+                const studentId = appState.currentUser.id;
+                const hw = appState.homeworks.find(h => h.id === hwId);
+                if (hw && hw.submissions && hw.submissions[studentId]) {
+                    delete hw.submissions[studentId];
+                    persistAll();
+                    render();
+                }
+            }
+        }
+
+        window.handleCreateZoom = function(e) {
+            e.preventDefault();
+            appState.zoomClasses.push({
+                id: 'z_' + Date.now(),
+                title: document.getElementById('zoomTitle').value.trim(),
+                date: document.getElementById('zoomDate').value,
+                link: document.getElementById('zoomLink').value.trim(),
+                subgroupId: document.getElementById('zoomSubgroup').value,
+                status: 'active'
+            });
+            persistAll();
+            render();
+        }
+
+        function readFileAsDataUrl(fileInputId, callback) {
+            const fileInput = document.getElementById(fileInputId);
+            if (fileInput && fileInput.files && fileInput.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    callback(e.target.result);
+                };
+                reader.readAsDataURL(fileInput.files[0]);
+            } else {
+                callback(null);
+            }
+        }
+
+        window.handleCreateHomework = function(e) {
+            e.preventDefault();
+            readFileAsDataUrl('hwFile', function(fileUrl) {
+                appState.homeworks.push({
+                    id: 'hw_' + Date.now(),
+                    title: document.getElementById('hwTitle').value.trim(),
+                    description: document.getElementById('hwDesc').value.trim(),
+                    deadline: document.getElementById('hwDeadline').value,
+                    subgroupId: document.getElementById('hwSubgroup').value,
+                    fileUrl: fileUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+                    submissions: {}
+                });
+                persistAll();
+                render();
+            });
+        }
+
+        window.handleCreateNote = function(e) {
+            e.preventDefault();
+            readFileAsDataUrl('noteFile', function(fileUrl) {
+                appState.notes.push({
+                    id: 'note_' + Date.now(),
+                    title: document.getElementById('noteTitle').value.trim(),
+                    description: document.getElementById('noteDesc').value.trim(),
+                    subgroupId: document.getElementById('noteSubgroup').value,
+                    fileUrl: fileUrl || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+                    date: new Date().toISOString().split('T')[0]
+                });
+                persistAll();
+                render();
+            });
+        }
+
+        window.handleCreateVideo = function(e) {
+            e.preventDefault();
+            let youtubeUrl = document.getElementById('vidUrl').value.trim();
+            if (youtubeUrl.includes('watch?v=')) youtubeUrl = youtubeUrl.replace('watch?v=', 'embed/');
+            else if (youtubeUrl.includes('youtu.be/')) youtubeUrl = youtubeUrl.replace('youtu.be/', 'www.youtube.com/embed/');
+
+            appState.videos.push({
+                id: 'vid_' + Date.now(),
+                title: document.getElementById('vidTitle').value.trim(),
+                youtubeUrl,
+                subgroupId: document.getElementById('vidSubgroup').value,
+                date: new Date().toISOString().split('T')[0]
+            });
+            persistAll();
+            render();
+        }
+
+        window.submitHomework = function(e, hwId) {
+            e.preventDefault();
+            readFileAsDataUrl('subFile_' + hwId, function(fileUrl) {
+                if (!fileUrl) {
+                    alert('Please select a PDF file to submit.');
+                    return;
+                }
+                const studentId = appState.currentUser.id;
+                const notes = document.getElementById('subNotes_' + hwId).value.trim();
+                const hw = appState.homeworks.find(h => h.id === hwId);
+                if (hw) {
+                    if (!hw.submissions) hw.submissions = {};
+                    hw.submissions[studentId] = { fileUrl, notes, submittedAt: new Date().toISOString(), grade: null, feedback: null, correctedFileUrl: null };
+                    persistAll();
+                    render();
+                }
+            });
+        }
+
+        window.submitGrading = function(e, hwId, studentId) {
+            e.preventDefault();
+            const grade = document.getElementById(`gradeInput_${hwId}_${studentId}`).value.trim();
+            const feedback = document.getElementById(`feedbackInput_${hwId}_${studentId}`).value.trim();
+            
+            readFileAsDataUrl(`correctedFile_${hwId}_${studentId}`, function(correctedFileUrl) {
+                const hw = appState.homeworks.find(h => h.id === hwId);
+                if (hw && hw.submissions && hw.submissions[studentId]) {
+                    hw.submissions[studentId].grade = grade;
+                    hw.submissions[studentId].feedback = feedback;
+                    if (correctedFileUrl) {
+                        hw.submissions[studentId].correctedFileUrl = correctedFileUrl;
+                    }
+                    persistAll();
+                    alert('Grade and feedback saved successfully!');
+                    render();
+                }
+            });
+        }
+
+        window.handleUpdateProfile = function(e) {
+            e.preventDefault();
+            const newName = document.getElementById('profileName').value.trim();
+            const newEmail = document.getElementById('profileEmail').value.trim().toLowerCase();
+            const newPassword = document.getElementById('profilePassword').value.trim();
+
+            if (!newName || !newEmail) {
+                alert('Name and email cannot be empty.');
+                return;
+            }
+
+            if (appState.users.some(u => u.email.toLowerCase() === newEmail && u.id !== appState.currentUser.id)) {
+                alert('This email address is already in use by another account.');
+                return;
+            }
+
+            appState.currentUser.name = newName;
+            appState.currentUser.email = newEmail;
+            if (newPassword) {
+                appState.currentUser.password = newPassword;
+            }
+
+            const userIndex = appState.users.findIndex(u => u.id === appState.currentUser.id);
+            if (userIndex !== -1) {
+                appState.users[userIndex] = { ...appState.currentUser };
+            }
+
+            persistAll();
+            alert('Profile updated successfully!');
+            render();
+        }
+
+        function getSafePdfUrl(url) {
+            if (!url || !url.startsWith('data:')) return url;
+            try {
+                const arr = url.split(',');
+                const mime = arr[0].match(/:(.*?);/)[1];
+                const bstr = atob(arr[1]);
+                let n = bstr.length;
+                const u8arr = new Uint8Array(n);
+                while(n--) {
+                    u8arr[n] = bstr.charCodeAt(n);
+                }
+                const blob = new Blob([u8arr], {type: mime});
+                return URL.createObjectURL(blob);
+            } catch(e) {
+                console.error(e);
+                return url;
+            }
+        }
+
+        window.openPdfModal = function(title, url) {
+            const safeUrl = getSafePdfUrl(url);
+            document.getElementById('modalTitle').textContent = title;
+            document.getElementById('modalSubtitle').textContent = url.startsWith('data:') ? 'Local Uploaded Document' : url;
+            document.getElementById('modalDownloadBtn').href = safeUrl;
+            document.getElementById('pdfViewerContent').innerHTML = `
+                <div class="w-full h-full flex flex-col items-center justify-center space-y-4">
+                    <div class="w-16 h-16 bg-gradient-to-tr from-pink-500 to-indigo-500 text-white rounded-2xl flex items-center justify-center text-2xl shadow-xl shadow-pink-500/20">
+                        <i class="fa-solid fa-file-pdf"></i>
+                    </div>
+                    <p class="font-bold text-slate-200">Document Ready for Review</p>
+                    <a href="${safeUrl}" target="_blank" class="px-6 py-3 bg-gradient-to-r from-indigo-500 to-pink-500 text-white rounded-xl font-bold shadow-lg shadow-indigo-500/25 hover:opacity-90 transition flex items-center space-x-2">
+                        <i class="fa-solid fa-external-link"></i>
+                        <span>Open Full PDF Viewer</span>
+                    </a>
+                </div>
+            `;
+            document.getElementById('pdfModal').classList.remove('hidden');
+        }
+
+        window.closePdfModal = function() {
+            document.getElementById('pdfModal').classList.add('hidden');
+        }
+
+        window.updateSessionTitle = function(e) {
+            e.preventDefault();
+            const val = document.getElementById('sessionTitleInput').value.trim();
+            if (val) {
+                appState.sessionTitle = val;
+                persistAll();
+                alert('Session title updated!');
+                render();
+            }
+        }
+
+        function render() {
+            const app = document.getElementById('app');
+            if (!appState.currentUser) { app.innerHTML = renderAuthView(); return; }
+            const user = appState.currentUser;
+            if (user.status === 'frozen' || user.status === 'pending') { 
+                app.innerHTML = renderFrozenView(user); 
+                return; 
+            }
+
+            app.innerHTML = `
+                <div class="flex h-screen overflow-hidden bg-slate-950">
+                    <aside class="w-72 bg-slate-900 border-r border-slate-800/80 text-slate-300 flex flex-col shadow-2xl z-20">
+                        <div class="p-6 border-b border-slate-800/80 flex items-center space-x-3 bg-slate-950/40">
+                            <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-indigo-500/30">
+                                <i class="fa-solid fa-square-root-variable"></i>
+                            </div>
+                            <div>
+                                <h1 class="font-extrabold text-white text-lg tracking-tight bg-gradient-to-r from-white via-indigo-200 to-pink-300 bg-clip-text text-transparent">Math Acer</h1>
+                                <p class="text-[11px] text-pink-400 font-semibold tracking-wider uppercase">O-Level Mastery</p>
+                            </div>
+                        </div>
+                        <div class="p-4 mx-4 my-4 bg-gradient-to-r from-indigo-950/60 to-purple-950/60 rounded-2xl border border-indigo-500/20 flex items-center space-x-3 shadow-inner">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-pink-500 text-white font-extrabold flex items-center justify-center uppercase text-sm shadow-md">
+                                ${user.name.charAt(0)}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm font-bold text-white truncate">${user.name}</p>
+                                <span class="inline-block px-2 py-0.5 mt-0.5 text-[9px] font-black uppercase tracking-wider bg-pink-500/20 text-pink-300 border border-pink-500/30 rounded-full">${user.email.toLowerCase() === 'tutor@mathacer.com' ? 'Main Admin Tutor' : user.role}</span>
+                            </div>
+                        </div>
+                        <nav class="flex-1 px-4 space-y-1.5 overflow-y-auto">${renderNavLinks(user)}</nav>
+                        <div class="p-4 border-t border-slate-800/80 bg-slate-950/20">
+                            <button onclick="logout()" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-pink-400 hover:bg-pink-500/10 font-bold text-sm transition-all">
+                                <i class="fa-solid fa-right-from-bracket w-5"></i><span>Sign Out</span>
+                            </button>
+                        </div>
+                    </aside>
+                    <main class="flex-1 flex flex-col overflow-hidden bg-slate-950">
+                        <header class="h-18 bg-slate-900/80 backdrop-blur-md border-b border-slate-800/80 px-8 flex items-center justify-between shadow-lg z-10">
+                            <span class="px-4 py-1.5 bg-gradient-to-r from-indigo-500/10 to-pink-500/10 text-indigo-300 text-xs font-bold rounded-xl border border-indigo-500/20 flex items-center shadow-sm">
+                                <i class="fa-regular fa-calendar-days mr-2 text-pink-400"></i> ${appState.sessionTitle}
+                            </span>
+                            <div class="text-right">
+                                <p class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Signed in as</p>
+                                <p class="text-sm font-extrabold text-white">${user.email}</p>
+                            </div>
+                        </header>
+                        <div class="flex-1 overflow-y-auto p-8 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-950/20 via-slate-950 to-slate-950">${renderTabContent(user)}</div>
+                    </main>
+                </div>
+            `;
+        }
+
+        function renderAuthView() {
+            return `
+                <div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 p-6 relative overflow-hidden">
+                    <div class="absolute -top-40 -left-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-pink-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="bg-slate-900/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-md p-8 border border-slate-800 relative z-10">
+                        <div class="text-center mb-8">
+                            <div class="w-18 h-18 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white rounded-3xl flex items-center justify-center text-3xl mx-auto shadow-2xl shadow-indigo-500/30 mb-4 transform hover:scale-105 transition-transform">
+                                <i class="fa-solid fa-square-root-variable"></i>
+                            </div>
+                            <h2 class="text-3xl font-black text-white tracking-tight">Math Acer Portal</h2>
+                            <p class="text-xs text-slate-400 mt-1 font-medium">Secure O-Level Mathematics Learning Suite</p>
+                        </div>
+                        <div class="flex bg-slate-950 p-1.5 rounded-2xl mb-6 border border-slate-800">
+                            <button onclick="switchAuthTab('login')" class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${appState.authTab === 'login' ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white'}">Sign In</button>
+                            <button onclick="switchAuthTab('signup')" class="flex-1 py-2.5 rounded-xl text-xs font-bold transition-all ${appState.authTab === 'signup' ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white'}">Register</button>
+                        </div>
+                        ${appState.authTab === 'login' ? `
+                            <form onsubmit="handleLogin(event)" class="space-y-4">
+                                <div id="loginError" class="hidden p-3 bg-pink-500/10 text-pink-400 text-xs rounded-xl font-bold border border-pink-500/20"></div>
+                                <div>
+                                    <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Email Address</label>
+                                    <input type="email" id="loginEmail" required class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500 text-sm transition-colors" placeholder="student@mathacer.com">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Password</label>
+                                    <input type="password" id="loginPassword" required class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-indigo-500 text-sm transition-colors" placeholder="••••••••">
+                                </div>
+                                <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-indigo-500 via-purple-600 to-pink-600 hover:opacity-90 text-white font-black rounded-xl shadow-xl shadow-indigo-500/25 transition-all">Sign In</button>
+                            </form>
+                        ` : `
+                            <form onsubmit="handleSignup(event)" class="space-y-4">
+                                <div id="signupError" class="hidden p-3 bg-pink-500/10 text-pink-400 text-xs rounded-xl font-bold border border-pink-500/20"></div>
+                                <div>
+                                    <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Full Name</label>
+                                    <input type="text" id="signupName" required class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="John Doe">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Email Address</label>
+                                    <input type="email" id="signupEmail" required class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="john@example.com">
+                                </div>
+                                <div>
+                                    <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Password</label>
+                                    <input type="password" id="signupPassword" required class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="••••••••">
+                                </div>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Role</label>
+                                        <select id="signupRole" onchange="document.getElementById('signupSubgroupWrap').style.display = this.value === 'student' ? 'block' : 'none'" class="w-full px-3 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500">
+                                            <option value="student">Student</option>
+                                            <option value="tutor">Tutor</option>
+                                        </select>
+                                    </div>
+                                    <div id="signupSubgroupWrap">
+                                        <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1.5">Initial Batch</label>
+                                        <select id="signupSubgroup" class="w-full px-3 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500">
+                                            ${appState.subgroups.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                                        </select>
+                                    </div>
+                                </div>
+                                <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-indigo-500 via-purple-600 to-pink-600 hover:opacity-90 text-white font-black rounded-xl shadow-xl shadow-indigo-500/25 transition-all">Submit Registration</button>
+                            </form>
+                        `}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderFrozenView(user) {
+            const isPending = user.status === 'pending';
+            const msg = isPending 
+                ? (user.role === 'tutor' ? 'Your tutor account is currently pending approval by the main admin tutor (tutor@mathacer.com).' : 'Your student account is currently pending tutor approval.')
+                : 'Your student account is currently frozen due to pending tuition payment.';
+            return `
+                <div class="min-h-screen flex items-center justify-center bg-slate-950 p-6">
+                    <div class="bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl max-w-lg w-full p-8 text-center">
+                        <div class="w-20 h-20 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-3xl flex items-center justify-center text-4xl mx-auto mb-6 shadow-xl shadow-amber-500/10">
+                            <i class="fa-solid fa-lock"></i>
+                        </div>
+                        <h2 class="text-2xl font-black text-white mb-2">${isPending ? 'Approval Pending' : 'Account Temporarily Frozen'}</h2>
+                        <p class="text-slate-300 text-sm mb-6">Dear <span class="font-bold text-white">${user.name}</span>, ${msg}</p>
+                        <button onclick="logout()" class="w-full py-3.5 bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/20">Sign Out</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderNavLinks(user) {
+            const isMainAdmin = (user.email.toLowerCase() === 'tutor@mathacer.com');
+            const links = [
+                { id: 'dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
+                { id: 'zoom', label: 'Live Zoom Classes', icon: 'fa-video' },
+                { id: 'homeworks', label: 'Homeworks & Exams', icon: 'fa-file-lines' },
+                { id: 'notes', label: 'Study Notes & PDFs', icon: 'fa-book' },
+                { id: 'videos', label: 'Lecture Recordings', icon: 'fa-circle-play' },
+                { id: 'profile', label: 'My Profile', icon: 'fa-user-pen' }
+            ];
+            if (user.role === 'tutor') {
+                const pendingCount = isMainAdmin ? appState.users.filter(u => u.status === 'pending').length : 0;
+                links.push(
+                    { id: 'subgroups', label: 'Batches Management', icon: 'fa-layer-group' },
+                    { id: 'participants', label: `Participants ${pendingCount ? `<span class='ml-2 px-2 py-0.5 bg-pink-500 text-white text-[10px] font-extrabold rounded-full animate-pulse shadow-md shadow-pink-500/50'>${pendingCount}</span>` : ''}`, icon: 'fa-users-gear' }
+                );
+                if (isMainAdmin) {
+                    links.push({ id: 'settings', label: 'Portal Settings', icon: 'fa-gear' });
+                }
+            }
+            return links.map(l => `
+                <button onclick="switchTab('${l.id}')" class="w-full flex items-center space-x-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${appState.currentTab === l.id ? 'bg-gradient-to-r from-indigo-500 to-pink-500 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:bg-slate-800/60 hover:text-white'}">
+                    <i class="fa-solid ${l.icon} w-5"></i><span>${l.label}</span>
+                </button>
+            `).join('');
+        }
+
+        function renderTabContent(user) {
+            const isMainAdmin = (user.email.toLowerCase() === 'tutor@mathacer.com');
+            switch(appState.currentTab) {
+                case 'dashboard': return renderDashboardTab(user);
+                case 'zoom': return renderZoomTab(user);
+                case 'homeworks': return renderHomeworksTab(user);
+                case 'notes': return renderNotesTab(user);
+                case 'videos': return renderVideosTab(user);
+                case 'profile': return renderProfileTab(user);
+                case 'subgroups': return user.role === 'tutor' ? renderSubgroupsTab() : '';
+                case 'participants': return user.role === 'tutor' ? renderParticipantsTab(user) : '';
+                case 'settings': return (user.role === 'tutor' && isMainAdmin) ? renderSettingsTab() : '';
+                default: return renderDashboardTab(user);
+            }
+        }
+
+        function renderDashboardTab(user) {
+            const userSub = user.subgroupId;
+            const upcomingZoom = appState.zoomClasses.filter(z => z.subgroupId === userSub);
+            const activeHw = appState.homeworks.filter(h => h.subgroupId === userSub);
+            return `
+                <div class="space-y-8">
+                    <div class="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-3xl p-8 text-white shadow-2xl shadow-indigo-500/10 relative overflow-hidden">
+                        <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+                        <h2 class="text-3xl font-black mb-2 tracking-tight">Master O-Level Mathematics</h2>
+                        <p class="text-indigo-100 text-sm font-medium">Welcome back, <span class="font-extrabold text-white">${user.name}</span>. Let's conquer new equations today!</p>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl relative overflow-hidden group hover:border-indigo-500/50 transition-colors">
+                            <div class="absolute top-0 right-0 p-6 text-indigo-500/20 text-4xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-video"></i></div>
+                            <p class="text-[11px] font-black text-indigo-400 uppercase tracking-wider">Zoom Classes</p>
+                            <h3 class="text-3xl font-black text-white mt-1">${upcomingZoom.length}</h3>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl relative overflow-hidden group hover:border-purple-500/50 transition-colors">
+                            <div class="absolute top-0 right-0 p-6 text-purple-500/20 text-4xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-file-lines"></i></div>
+                            <p class="text-[11px] font-black text-purple-400 uppercase tracking-wider">Homework Sets</p>
+                            <h3 class="text-3xl font-black text-white mt-1">${activeHw.length}</h3>
+                        </div>
+                        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl relative overflow-hidden group hover:border-pink-500/50 transition-colors">
+                            <div class="absolute top-0 right-0 p-6 text-pink-500/20 text-4xl group-hover:scale-110 transition-transform"><i class="fa-solid fa-book"></i></div>
+                            <p class="text-[11px] font-black text-pink-400 uppercase tracking-wider">Study Materials</p>
+                            <h3 class="text-3xl font-black text-white mt-1">${appState.notes.length}</h3>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderZoomTab(user) {
+            const filteredZoom = user.role === 'tutor' ? appState.zoomClasses : appState.zoomClasses.filter(z => z.subgroupId === user.subgroupId);
+            return `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-black text-white tracking-tight">Live Zoom Classes</h2>
+                    ${user.role === 'tutor' ? `
+                        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
+                            <h3 class="font-bold text-base text-white mb-4">Schedule New Zoom Class</h3>
+                            <form onsubmit="handleCreateZoom(event)" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                <input type="text" id="zoomTitle" required class="px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Class Title">
+                                <input type="datetime-local" id="zoomDate" required class="px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500">
+                                <input type="url" id="zoomLink" required class="px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Zoom URL">
+                                <select id="zoomSubgroup" class="px-3 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500">
+                                    ${appState.subgroups.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+                                </select>
+                                <button type="submit" class="md:col-span-4 px-6 py-3 bg-gradient-to-r from-indigo-500 to-pink-500 hover:opacity-90 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all">Publish Zoom Link</button>
+                            </form>
+                        </div>
+                    ` : ''}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        ${filteredZoom.map(z => `
+                            <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col justify-between hover:border-slate-700 transition-colors">
+                                <div>
+                                    <h3 class="font-extrabold text-lg text-white mb-2">${z.title}</h3>
+                                    <p class="text-xs text-indigo-300 font-medium"><i class="fa-regular fa-clock mr-1.5"></i>${new Date(z.date).toLocaleString()}</p>
+                                </div>
+                                <div class="pt-4 mt-4 border-t border-slate-800 flex justify-between items-center">
+                                    <a href="${z.link}" target="_blank" class="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 text-white text-sm font-bold rounded-xl shadow-lg shadow-emerald-500/20 transition-all flex items-center space-x-2">
+                                        <i class="fa-solid fa-video"></i><span>Join Zoom</span>
+                                    </a>
+                                    ${user.role === 'tutor' ? `<button onclick="deleteZoom('${z.id}')" class="px-3.5 py-2.5 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 rounded-xl text-sm font-bold border border-pink-500/20 transition-colors"><i class="fa-solid fa-trash"></i></button>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderHomeworksTab(user) {
+            const filteredHw = user.role === 'tutor' ? appState.homeworks : appState.homeworks.filter(h => h.subgroupId === user.subgroupId);
+            return `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-black text-white tracking-tight">Homework Assignments</h2>
+                    ${user.role === 'tutor' ? `
+                        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
+                            <h3 class="font-bold text-base text-white mb-4">Create Assignment</h3>
+                            <form onsubmit="handleCreateHomework(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input type="text" id="hwTitle" required class="px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Title">
+                                <input type="datetime-local" id="hwDeadline" required class="px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500">
+                                <select id="hwSubgroup" class="px-3 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500">${appState.subgroups.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
+                                <div>
+                                    <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Upload PDF File</label>
+                                    <input type="file" id="hwFile" accept="application/pdf" class="w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30">
+                                </div>
+                                <textarea id="hwDesc" rows="2" required class="md:col-span-2 px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Instructions..."></textarea>
+                                <button type="submit" class="md:col-span-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-pink-500 hover:opacity-90 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all">Publish Homework</button>
+                            </form>
+                        </div>
+                    ` : ''}
+                    <div class="space-y-6">
+                        ${filteredHw.map(h => {
+                            const submission = user.role === 'student' ? (h.submissions && h.submissions[user.id]) : null;
+                            return `
+                                <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl space-y-4">
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <h3 class="font-extrabold text-xl text-white">${h.title}</h3>
+                                            <p class="text-slate-300 text-sm mt-1 font-medium">${h.description}</p>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <button onclick="openPdfModal('${h.title}', '${h.fileUrl}')" class="px-4 py-2 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-xs font-bold rounded-xl hover:bg-indigo-500/30 transition-colors">View PDF</button>
+                                            ${user.role === 'tutor' ? `<button onclick="deleteHomework('${h.id}')" class="px-3 py-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 rounded-xl text-sm font-bold border border-pink-500/20"><i class="fa-solid fa-trash"></i></button>` : ''}
+                                        </div>
+                                    </div>
+                                    ${user.role === 'student' ? `
+                                        <div class="pt-4 border-t border-slate-800">
+                                            ${submission ? `
+                                                <div class="p-5 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 space-y-3">
+                                                    <div class="flex justify-between items-center">
+                                                        <div class="flex items-center space-x-2">
+                                                            <span class="px-3 py-1 bg-emerald-500 text-slate-950 text-xs font-black rounded-full shadow-sm">Submitted</span>
+                                                            <span class="text-xs text-slate-400 font-medium">${new Date(submission.submittedAt).toLocaleString()}</span>
+                                                        </div>
+                                                        <div class="space-x-2">
+                                                            <button onclick="openPdfModal('My Submitted Solution', '${submission.fileUrl}')" class="px-3.5 py-1.5 bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold rounded-lg hover:bg-slate-700 transition-colors">View My PDF</button>
+                                                            <button onclick="undoHomeworkSubmission('${h.id}')" class="px-3.5 py-1.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold rounded-lg hover:bg-amber-500/30 transition-colors">Edit / Resubmit</button>
+                                                        </div>
+                                                    </div>
+                                                    ${submission.grade ? `
+                                                        <div class="p-4 bg-slate-950 rounded-xl border border-emerald-500/30 space-y-2">
+                                                            <div class="flex justify-between items-center">
+                                                                <p class="text-xs font-black text-emerald-400 uppercase tracking-wider">Grade: ${submission.grade}</p>
+                                                                ${submission.correctedFileUrl ? `<button onclick="openPdfModal('Teacher Corrected PDF', '${submission.correctedFileUrl}')" class="px-3.5 py-2 bg-gradient-to-r from-indigo-500 to-pink-500 text-white text-xs font-bold rounded-xl shadow-md"><i class="fa-solid fa-file-pdf mr-1.5"></i> View Teacher's Marked PDF</button>` : ''}
+                                                            </div>
+                                                            <p class="text-xs text-slate-300 font-medium mt-1">Tutor Feedback: ${submission.feedback || 'None'}</p>
+                                                        </div>
+                                                    ` : '<p class="text-xs text-amber-400 font-bold">Status: Awaiting Tutor Grading</p>'}
+                                                </div>
+                                            ` : `
+                                                <form onsubmit="submitHomework(event, '${h.id}')" class="p-5 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
+                                                    <div>
+                                                        <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Upload Solution PDF</label>
+                                                        <input type="file" id="subFile_${h.id}" accept="application/pdf" required class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30">
+                                                    </div>
+                                                    <input type="text" id="subNotes_${h.id}" class="px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white w-full text-sm focus:outline-none focus:border-indigo-500" placeholder="Optional comments...">
+                                                    <button type="submit" class="px-6 py-2.5 bg-gradient-to-r from-indigo-500 to-pink-500 text-white text-xs font-bold rounded-xl shadow-md hover:opacity-90 transition-all">Submit Solution</button>
+                                                </form>
+                                            `}
+                                        </div>
+                                    ` : `
+                                        <div class="pt-4 border-t border-slate-800 space-y-4">
+                                            <h4 class="font-black text-xs uppercase tracking-wider text-slate-400">Student Submissions</h4>
+                                            ${Object.entries(h.submissions || {}).length === 0 ? '<p class="text-xs text-slate-500 font-medium">No submissions yet.</p>' : Object.entries(h.submissions).map(([sId, sub]) => {
+                                                const studentObj = appState.users.find(u => u.id === sId);
+                                                return `
+                                                    <div class="p-5 bg-slate-950 rounded-2xl border border-slate-800 space-y-3">
+                                                        <div class="flex justify-between items-center">
+                                                            <div>
+                                                                <span class="font-extrabold text-white text-sm">${studentObj ? studentObj.name : 'Student'}</span>
+                                                                <p class="text-[11px] text-slate-400">Submitted: ${new Date(sub.submittedAt).toLocaleString()}</p>
+                                                            </div>
+                                                            <button onclick="openPdfModal('Submission by ${studentObj ? studentObj.name : 'Student'}', '${sub.fileUrl}')" class="px-3.5 py-1.5 bg-slate-900 border border-slate-700 text-slate-200 rounded-lg text-xs font-bold shadow-sm hover:bg-slate-800">View Student PDF</button>
+                                                        </div>
+                                                        <form onsubmit="submitGrading(event, '${h.id}', '${sId}')" class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-slate-800">
+                                                            <input type="text" id="gradeInput_${h.id}_${sId}" value="${sub.grade || ''}" required class="px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs focus:outline-none focus:border-indigo-500" placeholder="Grade (e.g. A*, 95%)">
+                                                            <input type="text" id="feedbackInput_${h.id}_${sId}" value="${sub.feedback || ''}" class="px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs focus:outline-none focus:border-indigo-500" placeholder="Feedback / Comments">
+                                                            <div>
+                                                                <label class="block text-[10px] font-black text-slate-400 uppercase mb-1">Upload Marked PDF</label>
+                                                                <input type="file" id="correctedFile_${h.id}_${sId}" accept="application/pdf" class="w-full text-[10px] text-slate-400 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-indigo-500/20 file:text-indigo-300">
+                                                            </div>
+                                                            <div class="md:col-span-3 flex justify-end">
+                                                                <button type="submit" class="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-pink-500 text-white text-xs font-bold rounded-xl shadow-lg hover:opacity-90 transition-all">Save Grade & Return Corrected PDF</button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                `;
+                                            }).join('')}
+                                        </div>
+                                    `}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderNotesTab(user) {
+            const filteredNotes = user.role === 'tutor' ? appState.notes : appState.notes.filter(n => n.subgroupId === user.subgroupId);
+            return `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-black text-white tracking-tight">Study Notes</h2>
+                    ${user.role === 'tutor' ? `
+                        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
+                            <h3 class="font-bold text-base text-white mb-4">Upload Study Notes</h3>
+                            <form onsubmit="handleCreateNote(event)" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <input type="text" id="noteTitle" required class="px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Title">
+                                <select id="noteSubgroup" class="px-3 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500">${appState.subgroups.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
+                                <div>
+                                    <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Upload Study PDF</label>
+                                    <input type="file" id="noteFile" accept="application/pdf" class="w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30">
+                                </div>
+                                <input type="text" id="noteDesc" required class="px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Description">
+                                <button type="submit" class="md:col-span-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-pink-500 hover:opacity-90 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all">Upload Study Note</button>
+                            </form>
+                        </div>
+                    ` : ''}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        ${filteredNotes.map(n => `
+                            <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col justify-between hover:border-slate-700 transition-colors">
+                                <div>
+                                    <h3 class="font-extrabold text-lg text-white mb-1">${n.title}</h3>
+                                    <p class="text-slate-300 text-sm font-medium">${n.description}</p>
+                                </div>
+                                <div class="pt-4 mt-4 border-t border-slate-800 flex justify-between items-center">
+                                    <button onclick="openPdfModal('${n.title}', '${n.fileUrl}')" class="px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-pink-500 hover:opacity-90 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/25 transition-all">Open PDF</button>
+                                    ${user.role === 'tutor' ? `<button onclick="deleteNote('${n.id}')" class="px-3.5 py-2.5 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 rounded-xl text-sm font-bold border border-pink-500/20 transition-colors"><i class="fa-solid fa-trash"></i></button>` : ''}
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderVideosTab(user) {
+            const filteredVids = user.role === 'tutor' ? appState.videos : appState.videos.filter(v => v.subgroupId === user.subgroupId);
+            return `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-black text-white tracking-tight">Lecture Recordings</h2>
+                    ${user.role === 'tutor' ? `
+                        <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
+                            <h3 class="font-bold text-base text-white mb-4">Add Lecture Recording</h3>
+                            <form onsubmit="handleCreateVideo(event)" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <input type="text" id="vidTitle" required class="px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Title">
+                                <input type="url" id="vidUrl" required class="px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="YouTube URL">
+                                <select id="vidSubgroup" class="px-3 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500">${appState.subgroups.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}</select>
+                                <button type="submit" class="md:col-span-3 px-6 py-3 bg-gradient-to-r from-indigo-500 to-pink-500 hover:opacity-90 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all">Publish Video</button>
+                            </form>
+                        </div>
+                    ` : ''}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        ${filteredVids.map(v => `
+                            <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl space-y-4">
+                                <div class="flex justify-between items-center">
+                                    <h3 class="font-extrabold text-lg text-white">${v.title}</h3>${user.role === 'tutor' ? `<button onclick="deleteVideo('${v.id}')" class="px-3.5 py-2.5 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 rounded-xl text-sm font-bold border border-pink-500/20 transition-colors"><i class="fa-solid fa-trash"></i></button>` : ''}
+                                </div>
+                                <div class="aspect-video w-full rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shadow-inner">
+                                    <iframe src="${v.youtubeUrl}" class="w-full h-full" frameborder="0" allowfullscreen></iframe>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderProfileTab(user) {
+            return `
+                <div class="space-y-6 max-w-xl">
+                    <h2 class="text-2xl font-black text-white tracking-tight">My Profile Settings</h2>
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl">
+                        <form onsubmit="handleUpdateProfile(event)" class="space-y-4">
+                            <div>
+                                <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Full Name</label>
+                                <input type="text" id="profileName" value="${user.name}" required class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Email Address</label>
+                                <input type="email" id="profileEmail" value="${user.email}" required class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">New Password (leave blank to keep current)</label>
+                                <input type="password" id="profilePassword" class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="••••••••">
+                            </div>
+                            <div>
+                                <label class="block text-[11px] font-black text-slate-400 uppercase tracking-wider mb-1">Account Role</label>
+                                <input type="text" disabled value="${user.email.toLowerCase() === 'tutor@mathacer.com' ? 'MAIN ADMIN TUTOR' : user.role.toUpperCase()}" class="w-full px-4 py-3 rounded-xl bg-slate-950/50 border border-slate-800 text-slate-500 text-sm font-bold">
+                            </div>
+                            <button type="submit" class="px-6 py-3 bg-gradient-to-r from-indigo-500 to-pink-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/25 hover:opacity-90 transition-all">Save Profile Changes</button>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSubgroupsTab() {
+            return `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-black text-white tracking-tight">Batches Management</h2>
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl max-w-xl">
+                        <h3 class="font-bold text-base text-white mb-4">Create New Batch</h3>
+                        <form onsubmit="handleCreateSubgroup(event)" class="flex gap-3">
+                            <input type="text" id="newSubgroupName" required class="flex-1 px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500" placeholder="Batch Name (e.g. Edexcel Online)">
+                            <button type="submit" class="px-6 py-3 bg-gradient-to-r from-indigo-500 to-pink-500 hover:opacity-90 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/20 transition-all">Create</button>
+                        </form>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        ${appState.subgroups.map(s => `
+                            <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl flex flex-col justify-between hover:border-slate-700 transition-colors">
+                                <div>
+                                    <h3 class="font-extrabold text-lg text-white mb-1">${s.name}</h3>
+                                    <p class="text-xs text-slate-500 font-mono">ID: ${s.id}</p>
+                                </div>
+                                <div class="pt-4 mt-4 border-t border-slate-800 flex justify-between items-center">
+                                    <span class="text-xs font-bold text-indigo-300">${appState.users.filter(u => u.subgroupId === s.id && u.role === 'student').length} students</span>
+                                    <button onclick="deleteSubgroup('${s.id}')" class="px-3.5 py-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 rounded-xl text-xs font-bold border border-pink-500/20 transition-colors"><i class="fa-solid fa-trash mr-1.5"></i> Delete</button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderParticipantsTab(currentUser) {
+            const isMainAdmin = (currentUser.email.toLowerCase() === 'tutor@mathacer.com');
+            const pendingUsers = appState.users.filter(u => u.status === 'pending');
+            const activeStudents = appState.users.filter(u => u.role === 'student' && u.status !== 'pending');
+            const activeTutors = appState.users.filter(u => u.role === 'tutor' && u.status !== 'pending');
+
+            return `
+                <div class="space-y-8">
+                    <h2 class="text-2xl font-black text-white tracking-tight">Participants & Account Approvals</h2>
+                    
+                    ${isMainAdmin && pendingUsers.length > 0 ? `
+                        <div class="bg-gradient-to-r from-pink-950/30 to-purple-950/30 p-6 rounded-3xl border border-pink-500/30 space-y-4 shadow-xl">
+                            <h3 class="font-black text-pink-400 text-base flex items-center space-x-2">
+                                <i class="fa-solid fa-user-clock text-pink-400"></i>
+                                <span>Pending Approvals (${pendingUsers.length})</span>
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                ${pendingUsers.map(p => `
+                                    <div class="bg-slate-900 p-4 rounded-2xl border border-pink-500/20 shadow-md flex items-center justify-between">
+                                        <div>
+                                            <p class="font-extrabold text-white text-sm">${p.name} <span class="text-[9px] px-2 py-0.5 bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase rounded-full ml-1 font-black">${p.role}</span></p>
+                                            <p class="text-xs text-slate-400">${p.email}</p>
+                                        </div>
+                                        <div class="flex items-center space-x-2">
+                                            <button onclick="approveUser('${p.id}', '${appState.subgroups[0] ? appState.subgroups[0].id : ''}')" class="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:opacity-90 text-white text-xs font-bold rounded-xl shadow-md transition-all">
+                                                Approve
+                                            </button>
+                                            <button onclick="rejectUser('${p.id}')" class="px-4 py-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 text-xs font-bold rounded-xl border border-pink-500/20 transition-all">
+                                                Reject
+                                            </button>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    ${isMainAdmin ? `
+                        <div class="bg-slate-900 border border-slate-800 rounded-3xl shadow-xl overflow-hidden p-6 space-y-6">
+                            <h3 class="font-bold text-base text-white">Active Tutor Accounts</h3>
+                            <div class="space-y-3">
+                                ${activeTutors.map(t => `
+                                    <div class="flex justify-between items-center p-4 bg-slate-950 rounded-2xl border border-slate-800/80">
+                                        <div>
+                                            <p class="font-extrabold text-sm text-white">${t.name} ${t.email.toLowerCase() === 'tutor@mathacer.com' ? '<span class="text-xs text-indigo-400 font-bold ml-1">(Main Admin)</span>' : ''}</p>
+                                            <p class="text-xs text-slate-400">${t.email}</p>
+                                        </div>
+                                        ${t.email.toLowerCase() !== 'tutor@mathacer.com' ? `
+                                            <button onclick="removeParticipant('${t.id}')" class="px-4 py-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 text-xs font-bold rounded-xl border border-pink-500/20 transition-colors">Remove Tutor</button>
+                                        ` : '<span class="text-xs text-slate-500 font-semibold italic">System Root Admin</span>'}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="bg-slate-900 border border-slate-800 rounded-3xl shadow-xl overflow-hidden p-6 space-y-6">
+                        <h3 class="font-bold text-base text-white">Student Accounts & Batch Allocation</h3>
+                        <div class="space-y-3">
+                            ${activeStudents.map(s => `
+                                <div class="flex justify-between items-center p-4 bg-slate-950 rounded-2xl border border-slate-800/80">
+                                    <div>
+                                        <p class="font-extrabold text-sm text-white">${s.name}</p>
+                                        <p class="text-xs text-slate-400">${s.email}</p>
+                                    </div>
+                                    <div class="flex items-center space-x-3">
+                                        <select onchange="reassignStudentBatch('${s.id}', this.value)" class="px-3.5 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-bold text-white focus:outline-none focus:border-indigo-500">
+                                            ${appState.subgroups.map(sub => `<option value="${sub.id}" ${sub.id === s.subgroupId ? 'selected' : ''}>${sub.name}</option>`).join('')}
+                                        </select>
+                                        <button onclick="toggleFreezeStudent('${s.id}')" class="px-3.5 py-2 bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-bold rounded-xl hover:bg-amber-500/30 transition-colors">${s.status === 'frozen' ? 'Unfreeze' : 'Freeze'}</button>${isMainAdmin ? `<button onclick="removeParticipant('${s.id}')" class="px-3.5 py-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 text-xs font-bold rounded-xl border border-pink-500/20 transition-colors">Remove</button>` : ''}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderSettingsTab() {
+            return `
+                <div class="space-y-6">
+                    <h2 class="text-2xl font-black text-white tracking-tight">Portal Settings</h2>
+                    <div class="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl max-w-xl">
+                        <h3 class="font-bold text-base text-white mb-4">Active Examination Session Banner</h3>
+                        <form onsubmit="updateSessionTitle(event)" class="space-y-4">
+                            <input type="text" id="sessionTitleInput" value="${appState.sessionTitle}" required class="w-full px-4 py-3 rounded-xl bg-slate-950 border border-slate-800 text-white text-sm focus:outline-none focus:border-indigo-500">
+                            <button type="submit" class="px-6 py-3 bg-gradient-to-r from-indigo-500 to-pink-500 text-white text-sm font-bold rounded-xl shadow-lg shadow-indigo-500/25 hover:opacity-90 transition-all">Update Session Title</button>
+                        </form>
+                    </div>
+                </div>
+            `;
+        }
+
+        render();
+    </script>
+</body>
+</html>
